@@ -19,7 +19,7 @@ RUN mkdir /opt/webrtc-checkout && \
     cd /opt/webrtc-checkout && \
     fetch --nohooks webrtc && \
     cd /opt/webrtc-checkout/src && \
-    git checkout -b branch66 refs/remotes/branch-heads/66 && \
+    git checkout master && \
     cd /opt/webrtc-checkout && \
     gclient sync
 

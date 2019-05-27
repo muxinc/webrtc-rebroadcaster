@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Websocket Echo Test</title>
+    </head>
+    <body>
+        <h2>Hello statically!</h2>
+    </body>
+    <script>
+        var testWS = new WebSocket("ws://localhost:5000/echo");
+
+        testWS.onmessage = function (event) {
+            console.log("Hey cool, a message!", event);
+        }
+        testWS.onopen = function (event) {
+            testWS.send("Oh shit wassup");
+        };
+    </script>
+</html>

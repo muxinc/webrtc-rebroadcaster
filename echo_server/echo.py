@@ -9,12 +9,18 @@ clients = []
 
 @sockets.route('/echo')
 def echo_socket(ws):
+    print("Hey cool a client")
     clients.append(ws)
     while not ws.closed:
         message = ws.receive()
         for client in clients:
             if client is not ws:
-                client.send(message)
+                try:
+                    client.send(message)
+                except:
+                    print("Found a dead client")
+
+    clients.remove(ws)
 
 
 @app.route('/')

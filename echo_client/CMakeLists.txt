@@ -5,6 +5,7 @@ project(webrtc_rebroadcaster)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
+find_package(X11 REQUIRED)
 
 find_package(Boost COMPONENTS system thread REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
@@ -18,4 +19,10 @@ target_include_directories( main PRIVATE
 	"/home/nick/public_src/webrtc-checkout/src/third_party/jsoncpp/source/include"
 	"/home/nick/public_src/webrtc-checkout/src/third_party/abseil-cpp"
 	"/home/nick/public_src/webrtc-checkout/src/third_party/libnyuv/include" )
-target_link_libraries( main ${Boost_LIBRARIES} Threads::Threads ${CMAKE_SOURCE_DIR}/libwebrtc.a )
+target_link_libraries(
+	main
+	${Boost_LIBRARIES}
+	Threads::Threads
+	${CMAKE_SOURCE_DIR}/libwebrtc.a
+	${X11_LIBRARIES}
+	 ${CMAKE_DL_LIBS} )

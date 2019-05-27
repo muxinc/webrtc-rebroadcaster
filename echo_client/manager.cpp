@@ -66,3 +66,19 @@ void Manager::OnSuccess(webrtc::SessionDescriptionInterface* desc) {
 void Manager::OnFailure(webrtc::RTCError error) {
     return;
 }
+
+//
+// WebsocketClient implementation.
+//
+
+void Manager::OnDisconnected() {
+    std::cerr << "Websocket disconnected" << std::endl;
+};
+
+void Manager::OnMessage(const std::string& message) {
+    std::cout << "Got a message: " << message << std::endl;
+};
+
+void Manager::OnWebsocketError() {
+    std::cerr << "Oh noes, websocket error" << std::endl;
+};

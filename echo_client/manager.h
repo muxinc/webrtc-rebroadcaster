@@ -8,17 +8,16 @@
 #define MANAGER_H_
 
 #include <iostream>
-
 #include <api/peer_connection_interface.h>
 
-class Manager : public webrtc::PeerConnectionObserver,
-                public webrtc::CreateSessionDescriptionObserver {
+#include "websocket_client.h"
 
+class Manager : public webrtc::PeerConnectionObserver,
+                public webrtc::CreateSessionDescriptionObserver,
+                public WebsocketClientObserver {
 public:
     Manager();
-    
-protected:
-    ~Manager();
+    virtual ~Manager();
 
     bool InitializePeerConnection();
 
@@ -49,6 +48,13 @@ protected:
     //
     void OnSuccess(webrtc::SessionDescriptionInterface* desc) override;
     void OnFailure(webrtc::RTCError error) override;
+
+    //
+    // WebsocketClient implementation.
+    //
+    void OnDisconnected() override;
+    void OnMessage(const std::string& message) override;
+    void OnWebsocketError() override;
 };
 
 #endif // MANAGER_H_

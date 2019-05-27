@@ -5,11 +5,16 @@ from flask_sockets import Sockets
 app = Flask(__name__)
 sockets = Sockets(app)
 
+clients = []
+
 @sockets.route('/echo')
 def echo_socket(ws):
+    clients.append(ws)
     while not ws.closed:
         message = ws.receive()
-        ws.send(message)
+        for client in clients:
+            if client is not ws:
+                client.send(message)
 
 
 @app.route('/')

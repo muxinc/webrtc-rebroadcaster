@@ -4,16 +4,49 @@
         <title>Websocket Echo Test</title>
     </head>
     <body>
-        <h2>Hello statically!</h2>
+        <h2>Chat test</h2>
+        <div>
+            <label for="username">Username
+            <input type="text" id="username"/>
+            </label>
+        </div>
+        <div>
+        <label for="message">message
+            <input type="text" id="message"/>
+            <button id="send_msg">Send</button>
+        </label>
+        </div>
+        <div id="messages">
+
+        </div>
     </body>
     <script>
+        var username = document.getElementById("username");
+        var messageInput = document.getElementById("message");
+        var sendButton = document.getElementById("send_msg");
+        var messages = document.getElementById("messages");
+
         var testWS = new WebSocket("ws://localhost:5000/echo");
 
         testWS.onmessage = function (event) {
-            console.log("Hey cool, a message!", event);
+            console.log("Hey cool, a message!", event.data);
+            var msg = JSON.parse(event.data);
+            newMsg = document.createElement("div");
+            newMsg.innerHTML = `<strong>${msg.username}</strong> ${msg.msg}`;
+            messages.prepend(newMsg);
         }
-        testWS.onopen = function (event) {
-            testWS.send("Oh shit wassup");
-        };
+
+        sendButton.onclick = function () {
+            if (username.value == "") {
+                username.focus()
+                return
+            }
+
+            testWS.send(JSON.stringify({
+                "username": username.value,
+                "msg": messageInput.value
+            }));
+        }
+
     </script>
 </html>

@@ -11,30 +11,90 @@
             </label>
         </div>
         <div>
+            <button id="call_start">Start Call</button>
+        </div>
+        <div>
         <label for="message">message
             <input type="text" id="message"/>
             <button id="send_msg">Send</button>
         </label>
         </div>
         <div id="messages">
-
         </div>
     </body>
     <script>
+        var peerconnection = null;
+        var isCaller = false;
+        var datachannel = null;
+
         var username = document.getElementById("username");
         var messageInput = document.getElementById("message");
         var sendButton = document.getElementById("send_msg");
+        var callButton = document.getElementById("call_start");
         var messages = document.getElementById("messages");
-
         var testWS = new WebSocket("ws://localhost:5000/echo");
 
         testWS.onmessage = function (event) {
             console.log("Hey cool, a message!", event.data);
             var msg = JSON.parse(event.data);
-            newMsg = document.createElement("div");
-            newMsg.innerHTML = `<strong>${msg.username}</strong> ${msg.msg}`;
-            messages.prepend(newMsg);
-        }
+
+            switch (msg.type) {
+                case "msg":
+                    newMsg = document.createElement("div");
+                    newMsg.innerHTML = `<strong>${msg.username}</strong> ${msg.msg}`;
+                    messages.prepend(newMsg);
+
+                    break;
+
+                case "offer":
+                    console.log("answering a call");
+                    callButton.disabled = true;
+
+                    createPeerConnection();
+                    var desc = new RTCSessionDescription(msg.sdp);
+                    peerconnection.setRemoteDescription(desc)
+                    .then(function () {
+                        return peerconnection.createAnswer();
+                    })
+                    .then(function (answer) {
+                        return peerconnection.setLocalDescription(answer);
+                    })
+                    .then(function () {
+                        testWS.send(JSON.stringify({
+                            type: "answer",
+                            sdp: peerconnection.localDescription
+                        }));
+                    })
+                    .catch(reportError);
+
+                    break;
+
+                case "answer":
+                    console.log("Received an answer to my call");
+
+                    peerconnection.setRemoteDescription(msg.sdp)
+                    .catch(reportError);
+
+                    break;
+
+                case "ice-candidate":
+                    console.log("Got a candidate");
+
+                    if (msg.candidate == null) {
+                        console.log("Last candidate received");
+                    } else {
+                        var candidate = new RTCIceCandidate(msg.candidate);
+                        peerconnection.addIceCandidate(candidate)
+                        .catch(reportError);
+                    }
+
+                    break;
+
+                default:
+                    console.log("Ignoring unknown message type: ", msg);
+                    break;
+            }
+        };
 
         sendButton.onclick = function () {
             if (username.value == "") {
@@ -42,11 +102,109 @@
                 return
             }
 
-            testWS.send(JSON.stringify({
-                "username": username.value,
-                "msg": messageInput.value
-            }));
+            if (datachannel == null) {
+                alert("Can't send a message from a closed channel");
+            } else {
+
+                datachannel.send(JSON.stringify({
+                    "type": "msg",
+                    "username": username.value,
+                    "msg": messageInput.value
+                }));
+            }
+        };
+
+        callButton.onclick = function () {
+            callButton.disabled = true;
+            isCaller = true;
+            createPeerConnection();
         }
+
+        function reportError(event) {
+            console.log("Error:", event);
+            alert("Crap check the console");
+        }
+
+        function handleDataChannelMessage(event) {
+                var msg = JSON.parse(event.data);
+                newMsg = document.createElement("div");
+                newMsg.innerHTML = `<strong>${msg.username}</strong> ${msg.msg}`;
+                messages.prepend(newMsg);
+        };
+
+        function createPeerConnection() {
+            peerconnection = new RTCPeerConnection({
+                iceServers: [
+                    {
+                        urls: "stun:stun.l.google.com:19302"
+                    }
+                ]
+            });
+
+            peerconnection.onicecandidate = function (event) {
+                console.log("onicecandidate", event);
+
+                testWS.send(JSON.stringify({
+                    type: "ice-candidate",
+                    candidate: event.candidate
+                }));
+            };
+
+            peerconnection.onicecandidateerror = function (event) {
+                console.log("onicecandidateerror", event);
+            };
+
+            peerconnection.onnegotiationneeded = function (event) {
+                console.log("onnegotiationneeded", event);
+
+                peerconnection.createOffer().then(function(offer) {
+                    return peerconnection.setLocalDescription(offer);
+                })
+                .then(function() {
+                    testWS.send(JSON.stringify({
+                        type: "offer",
+                        sdp: peerconnection.localDescription
+                    }));
+                })
+                .catch(reportError);
+            };
+
+            peerconnection.oniceconnectionstatechange = function (event) {
+                console.log("oniceconnectionstatechange", event);
+            };
+
+            peerconnection.onicegatheringstatechange = function (event) {
+                console.log("onicegatheringstatechange", event);
+            };
+
+            peerconnection.onsignalingstatechange = function (event) {
+                console.log("onsignalingstatechange", event);
+            };
+
+            peerconnection.ondatachannel = function (event) {
+                console.log("Hey cool a data channel: ", event);
+                datachannel = event.channel;
+                datachannel.onmessage = handleDataChannelMessage;
+            };
+
+            if (isCaller) {
+                datachannel = peerconnection.createDataChannel("chat");
+                datachannel.onopen = function (event) {
+                    console.log("Data channel open and ready to go");
+                    datachannel.send(JSON.stringify({
+                        type: "msg",
+                        username: username.value,
+                        msg: "oh shit wassup from datachannel bromego!"
+                    }));
+                }
+
+                datachannel.onclose = function (event) {
+                    console.log("Data channel closed, goodbye");
+                }
+
+                datachannel.onmessage = handleDataChannelMessage;
+            }
+        };
 
     </script>
 </html>

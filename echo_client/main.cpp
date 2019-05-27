@@ -5,6 +5,7 @@
 //
 //------------------------------------------------------------------------------
 
+#include <api/scoped_refptr.h>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/connect.hpp>
@@ -15,7 +16,9 @@
 #include <thread>
 #include <chrono>
 #include <api/peer_connection_interface.h>
-#include "rtc_base/ssl_adapter.h"
+#include <rtc_base/ssl_adapter.h>
+
+#include "manager.h"
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -39,6 +42,8 @@ int main(int argc, char** argv)
     }
     std::cout << "rtc ssl initialized" << std::endl;
 
+    rtc::scoped_refptr<Manager> manager(new rtc::RefCountedObject<Manager>());
+
     try
     {
         auto const host = "localhost";
@@ -55,6 +60,7 @@ int main(int argc, char** argv)
         // Look up the domain name
         auto const results = resolver.resolve(host, port);
 
+        std::cout << "WebSocket connecting" << std::endl;
         // Make the connection on the IP address we get from a lookup
         net::connect(ws.next_layer(), results.begin(), results.end());
 

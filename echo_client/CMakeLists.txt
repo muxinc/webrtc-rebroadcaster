@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 set (CMAKE_CXX_STANDARD 11)
 
+project(webrtc_rebroadcaster)
+
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
@@ -10,7 +12,7 @@ link_directories(${Boost_LIBRARY_DIR})
 
 add_definitions( -DWEBRTC_POSIX=1 )
 
-add_executable(main main.cpp)
+add_executable(main manager.cpp main.cpp)
 target_include_directories( main PRIVATE
 	"/home/nick/public_src/webrtc-checkout/src"
 	"/home/nick/public_src/webrtc-checkout/src/third_party/jsoncpp/source/include"

@@ -8,5 +8,12 @@ find_package(Boost COMPONENTS system thread REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIR})
 
+add_definitions( -DWEBRTC_POSIX=1 )
+
 add_executable(main main.cpp)
-target_link_libraries( main ${Boost_LIBRARIES} Threads::Threads )
+target_include_directories( main PRIVATE
+	"/home/nick/public_src/webrtc-checkout/src"
+	"/home/nick/public_src/webrtc-checkout/src/third_party/jsoncpp/source/include"
+	"/home/nick/public_src/webrtc-checkout/src/third_party/abseil-cpp"
+	"/home/nick/public_src/webrtc-checkout/src/third_party/libnyuv/include" )
+target_link_libraries( main ${Boost_LIBRARIES} Threads::Threads ${CMAKE_SOURCE_DIR}/libwebrtc.a )

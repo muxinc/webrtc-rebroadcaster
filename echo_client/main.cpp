@@ -5,7 +5,6 @@
 //
 //------------------------------------------------------------------------------
 
-
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/connect.hpp>
@@ -15,6 +14,8 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <api/peer_connection_interface.h>
+#include "rtc_base/ssl_adapter.h"
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -32,6 +33,12 @@ void msg_writer(websocket::stream<tcp::socket>* ws) {
 // Sends a WebSocket message and prints the response
 int main(int argc, char** argv)
 {
+    if (!rtc::InitializeSSL()) {
+        std::cout << "ah crap ssl init failed" << std::endl;
+        return 1;
+    }
+    std::cout << "rtc ssl initialized" << std::endl;
+
     try
     {
         auto const host = "localhost";

@@ -30,3 +30,4 @@ RUN cd /opt/webrtc-checkout/src && DEBIAN_FRONTEND=noninteractive DEBCONF_NONINT
 RUN gn gen out/Debug66 --args="rtc_include_tests=false rtc_use_h264=false use_rtti=true is_component_build=false enable_iterator_debugging=false enable_nacl=false target_os=\"linux\" target_cpu=\"x64\" is_debug=true use_custom_libcxx=false use_custom_libcxx_for_host=false"
 RUN ninja -C out/Debug66
 
+RUN cd /opt/webrtc-checkout/src/out/Debug66/obj/third_party/jsoncpp/jsoncpp && ar rcs ../../libjsoncpp.a json_reader.o json_writer.o json_value.o

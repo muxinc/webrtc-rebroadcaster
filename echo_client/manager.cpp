@@ -15,6 +15,7 @@
 #include <api/video_codecs/builtin_video_encoder_factory.h>
 #include <api/video_codecs/video_decoder_factory.h>
 #include <api/video_codecs/video_encoder_factory.h>
+#include <rtc_base/strings/json.h>
 
 Manager::Manager() {
     std::cout << "Manager creating" << std::endl;
@@ -32,8 +33,22 @@ bool Manager::InitializePeerConnection() {
       webrtc::CreateBuiltinVideoEncoderFactory(),
       webrtc::CreateBuiltinVideoDecoderFactory(), nullptr /* audio_mixer */,
       nullptr /* audio_processing */);
+    
+    if (!this->peer_connection_factory) {
+        std::cerr << "Failed to initialize peer connection factory" << std::endl;
+        return false;
+    }
 
-    std::cout << "I like, did a thing" << std::endl;
+    webrtc::PeerConnectionInterface::RTCConfiguration config;
+    config.sdp_semantics = webrtc::SdpSemantics::kUnifiedPlan;
+    config.enable_dtls_srtp = true;
+    webrtc::PeerConnectionInterface::IceServer server;
+    server.uri = "stun:stun.l.google.com:19302";
+    config.servers.push_back(server);
+
+    this->peer_connection = this->peer_connection_factory->CreatePeerConnection(config, nullptr, nullptr, this);
+
+    return this->peer_connection != nullptr;
 }
 
 //
@@ -98,8 +113,23 @@ void Manager::OnDisconnected() {
 void Manager::OnMessage(const std::string& message) {
     std::cout << "Got a message: " << message << std::endl;
 
-    if (!this->peer_connection_factory) {
+    if (!this->peer_connection_factory.get()) {
         this->InitializePeerConnection();
+    }
+
+    Json::Reader reader;
+    Json::Value jmessage;
+    if (!reader.parse(message, jmessage)) {
+        std::cerr << "Received unknown message. " << message << std::endl;
+        return;
+    }
+    
+    std::string type_str;
+    rtc::GetStringFromJsonObject(jmessage, "type", &type_str);
+    if (!type_str.empty()) {
+        std::cerr << "Got msg of type: " << type_str << std::endl;
+    } else {
+        std::cerr << "Ah shit the type string is empty" << std::endl;
     }
 };
 

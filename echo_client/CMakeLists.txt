@@ -13,7 +13,7 @@ link_directories(${Boost_LIBRARY_DIR})
 
 add_definitions( -DWEBRTC_POSIX=1 )
 
-add_executable(main manager.cpp websocket_client.cpp main.cpp)
+add_executable(main manager.cpp websocket_client.cpp main.cpp json.cc )
 target_include_directories( main PRIVATE
 	"/home/nick/public_src/webrtc-checkout/src"
 	"/home/nick/public_src/webrtc-checkout/src/third_party/jsoncpp/source/include"
@@ -24,5 +24,6 @@ target_link_libraries(
 	${Boost_LIBRARIES}
 	Threads::Threads
 	${CMAKE_SOURCE_DIR}/libwebrtc.a
+	${CMAKE_SOURCE_DIR}/libjsoncpp.a
 	${X11_LIBRARIES}
 	 ${CMAKE_DL_LIBS} )

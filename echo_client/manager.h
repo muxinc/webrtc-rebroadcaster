@@ -59,6 +59,7 @@ public:
 
 private:
     rtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> peer_connection_factory;
+    rtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection;
 };
 
 #endif // MANAGER_H_

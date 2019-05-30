@@ -45,6 +45,12 @@ int main(int argc, char** argv)
     rtc::scoped_refptr<Manager> manager(new rtc::RefCountedObject<Manager>());
     rtc::scoped_refptr<WebsocketClient> ws(new rtc::RefCountedObject<WebsocketClient>());
 
+    std::thread pcThread(&Manager::InitializePeerConnectionFactory, manager);
+
     ws->RegisterObserver(manager);
     ws->Connect("localhost", "5000", "/echo");
+
+    std::cerr << "Done, returning" << std::endl;
+
+    return 0;
 }

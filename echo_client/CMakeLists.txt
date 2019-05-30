@@ -11,7 +11,7 @@ find_package(Boost COMPONENTS system thread REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIR})
 
-add_definitions( -DWEBRTC_POSIX=1 )
+add_definitions( -DWEBRTC_POSIX=1 -DWEBRTC_LINUX=1 )
 
 add_executable(main manager.cpp websocket_client.cpp main.cpp json.cc )
 target_include_directories( main PRIVATE

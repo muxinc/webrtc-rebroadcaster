@@ -20,6 +20,7 @@ public:
     Manager();
     virtual ~Manager();
 
+    void InitializePeerConnectionFactory();
     bool InitializePeerConnection();
 
     //

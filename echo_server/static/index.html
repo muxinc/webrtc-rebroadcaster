@@ -161,10 +161,7 @@
                     return peerconnection.setLocalDescription(offer);
                 })
                 .then(function() {
-                    testWS.send(JSON.stringify({
-                        type: "offer",
-                        sdp: peerconnection.localDescription
-                    }));
+                    testWS.send(JSON.stringify(peerconnection.localDescription));
                 })
                 .catch(reportError);
             };

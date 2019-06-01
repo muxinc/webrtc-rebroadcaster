@@ -42,8 +42,9 @@ int main(int argc, char** argv)
     }
     std::cout << "rtc ssl initialized" << std::endl;
 
-    rtc::scoped_refptr<Manager> manager(new rtc::RefCountedObject<Manager>());
     rtc::scoped_refptr<WebsocketClient> ws(new rtc::RefCountedObject<WebsocketClient>());
+    rtc::scoped_refptr<Manager> manager(new rtc::RefCountedObject<Manager>(ws));
+
 
     std::thread pcThread(&Manager::InitializePeerConnectionFactory, manager);
 
@@ -51,6 +52,7 @@ int main(int argc, char** argv)
     ws->Connect("localhost", "5000", "/echo");
 
     std::cerr << "Done, returning" << std::endl;
+    pcThread.join();
 
     return 0;
 }

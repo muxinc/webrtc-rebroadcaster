@@ -15,10 +15,12 @@
 
 class Manager : public webrtc::PeerConnectionObserver,
                 public webrtc::CreateSessionDescriptionObserver,
+                public webrtc::DataChannelObserver,
                 public WebsocketClientObserver {
 public:
-    Manager();
+    Manager(rtc::scoped_refptr<WebsocketClient> ws);
     virtual ~Manager();
+
 
     void InitializePeerConnectionFactory();
     bool InitializePeerConnection();
@@ -52,6 +54,12 @@ public:
     void OnFailure(webrtc::RTCError error) override;
 
     //
+    // DataChannelObserver implementation.
+    //
+    void OnStateChange() override {};
+    void OnMessage(const webrtc::DataBuffer& buffer) override;
+
+    //
     // WebsocketClient implementation.
     //
     void OnDisconnected() override;
@@ -59,8 +67,11 @@ public:
     void OnWebsocketError() override;
 
 private:
+    rtc::scoped_refptr<WebsocketClient> ws;
     rtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> peer_connection_factory;
     rtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection;
+
+    rtc::scoped_refptr<webrtc::DataChannelInterface> chatChannel;
 };
 
 #endif // MANAGER_H_

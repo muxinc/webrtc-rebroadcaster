@@ -32,7 +32,7 @@ class DummySetSessionDescriptionObserver
   }
 };
 
-Manager::Manager() {
+Manager::Manager(rtc::scoped_refptr<WebsocketClient> ws) : ws(ws) {
     std::cout << "Manager creating" << std::endl;
 }
 
@@ -82,6 +82,7 @@ bool Manager::InitializePeerConnection() {
 //
 
 void Manager::OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState new_state) {
+    std::cout << "OnSignalingChange" << std::endl;
     return;
 }
 
@@ -94,6 +95,13 @@ void Manager::OnRemoveTrack(rtc::scoped_refptr<webrtc::RtpReceiverInterface> rec
 }
 
 void Manager::OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> channel) {
+    std::cout << "OnDataChannel: " << channel->label() << std::endl;
+
+    if (channel->label().compare("chat") == 0) {
+        this->chatChannel = channel;
+        this->chatChannel->RegisterObserver(this);
+    }
+
     return;
 }
 
@@ -102,14 +110,34 @@ void Manager::OnRenegotiationNeeded() {
 }
 
 void Manager::OnIceConnectionChange(webrtc::PeerConnectionInterface::IceConnectionState new_state) {
+    std::cout << "OnIceConnectionChange" << std::endl;
     return;
 }
 
 void Manager::OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState new_state) {
+    std::cout << "OnIceGatheringChange" << std::endl;
     return;
 }
 
 void Manager::OnIceCandidate(const webrtc::IceCandidateInterface* candidate) {
+    std::string candidateStr;
+    candidate->ToString(&candidateStr);
+    std::cerr << "OnIceCandidate: " << candidateStr << std::endl;
+
+    Json::Value candidateInfo;
+    candidateInfo["candidate"] = candidateStr;
+    candidateInfo["sdpMid"] = candidate->sdp_mid();
+    candidateInfo["sdpMLineIndex"] = candidate->sdp_mline_index();
+
+    Json::Value candidateMsg;
+    candidateMsg["type"] = "ice-candidate";
+    candidateMsg["candidate"] = candidateInfo;
+
+    Json::StyledWriter writer;
+    this->ws->Send(writer.write(candidateMsg));
+
+    std::cerr << "Sent ice-candidate" << std::endl;
+
     return;
 }
 
@@ -122,12 +150,38 @@ void Manager::OnIceConnectionReceivingChange(bool receiving) {
 //
 void Manager::OnSuccess(webrtc::SessionDescriptionInterface* desc) {
     std::cout << "OnSuccess" << std::endl;
+    this->peer_connection->SetLocalDescription(DummySetSessionDescriptionObserver::Create(), desc);
+
+    std::string sdp;
+    desc->ToString(&sdp);
+
+    std::cout << "This is the sdp: " << sdp << std::endl;
+
+    Json::StyledWriter writer;
+    Json::Value jmessage;
+    jmessage["type"] = webrtc::SdpTypeToString(desc->GetType());
+    jmessage["sdp"] = sdp;
+
+    std::string msg = writer.write(jmessage);
+    std::cout << "I'm sending this as a response: " << msg << std::endl;
+
+    this->ws->Send(msg);
+
     return;
 }
 
 void Manager::OnFailure(webrtc::RTCError error) {
-    std::cout << "OnFailure" << std::endl;
+    std::cout << "CreateSessionDescriptionObserver OnFailure" << std::endl;
     return;
+}
+
+
+//
+// DataChannelObserver implementation.
+//
+void Manager::OnMessage(const webrtc::DataBuffer& buffer) {
+    std::string msg(buffer.data.data<char>(), buffer.data.size());
+    std::cout << "Received message: " << msg << std::endl;
 }
 
 //
@@ -192,8 +246,42 @@ void Manager::OnMessage(const std::string& message) {
          std::cerr << "Remote description set, generating an answer" << std::endl;
          this->peer_connection->CreateAnswer(this, webrtc::PeerConnectionInterface::RTCOfferAnswerOptions());
 
-    } else if (msgType.compare("candidate") == 0) {
+    } else if (msgType.compare("ice-candidate") == 0) {
         std::cerr << "Oh sweet an ice candidate" << std::endl;
+
+        Json::Value candidateMsg;
+        if (!rtc::GetValueFromJsonObject(jmessage, "candidate", &candidateMsg)) {
+            std::cerr << "ERROR: failed to get 'candidate' attribute of ice-candidate message" << std::endl;
+            return;
+        }
+
+        std::string sdpMid;
+        int sdpMlineindex = 0;
+        std::string candidateSdp;
+        if (!rtc::GetStringFromJsonObject(candidateMsg, "sdpMid", &sdpMid)) {
+            std::cerr << "ERROR: Failed to get 'sdpMid' from ice-candidate message" << std::endl;
+            return;
+        }
+        if (!rtc::GetIntFromJsonObject(candidateMsg, "sdpMLineIndex", &sdpMlineindex)) {
+            std::cerr << "ERROR: Failed to get 'sdpMLineIndex' from ice-candidate message" << std::endl;
+            return;
+        }
+        if (!rtc::GetStringFromJsonObject(candidateMsg, "candidate", &candidateSdp)) {
+            std::cerr << "ERROR: Failed to get 'candidate' from ice-candidate message" << std::endl;
+            return;
+        }
+
+        webrtc::SdpParseError error;
+        std::unique_ptr<webrtc::IceCandidateInterface> candidate(webrtc::CreateIceCandidate(sdpMid, sdpMlineindex, candidateSdp, &error));
+        if (!candidate.get()) {
+            std::cerr << "Can't parse received candidate message. " << "SdpParseError was: " << error.description << std::endl;
+            return;
+        }
+
+        if (!this->peer_connection->AddIceCandidate(candidate.get())) {
+            std::cerr << "Failed to apply the received candidate" << std::endl;
+            return;
+        }
     }
 };
 

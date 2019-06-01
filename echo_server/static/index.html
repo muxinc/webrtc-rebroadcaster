@@ -72,7 +72,7 @@
                 case "answer":
                     console.log("Received an answer to my call");
 
-                    peerconnection.setRemoteDescription(msg.sdp)
+                    peerconnection.setRemoteDescription(msg)
                     .catch(reportError);
 
                     break;
@@ -143,11 +143,14 @@
 
             peerconnection.onicecandidate = function (event) {
                 console.log("onicecandidate", event);
-
-                testWS.send(JSON.stringify({
-                    type: "ice-candidate",
-                    candidate: event.candidate
-                }));
+                if (event.candidate == null) {
+                    console.log("Last candidate received");
+                } else {
+                    testWS.send(JSON.stringify({
+                        type: "ice-candidate",
+                        candidate: event.candidate
+                    }));
+                }
             };
 
             peerconnection.onicecandidateerror = function (event) {
@@ -161,7 +164,9 @@
                     return peerconnection.setLocalDescription(offer);
                 })
                 .then(function() {
-                    testWS.send(JSON.stringify(peerconnection.localDescription));
+                    var sdpMsg = JSON.stringify(peerconnection.localDescription);
+                    console.log("This is what an sdp message looks like: ", sdpMsg);
+                    testWS.send(sdpMsg);
                 })
                 .catch(reportError);
             };

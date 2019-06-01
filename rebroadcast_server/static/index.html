@@ -14,6 +14,9 @@
             <button id="call_start">Start Call</button>
         </div>
         <div>
+            <video id="local_video" autoplay muted></video>
+        </div>
+        <div>
         <label for="message">message
             <input type="text" id="message"/>
             <button id="send_msg">Send</button>
@@ -190,21 +193,14 @@
             };
 
             if (isCaller) {
-                datachannel = peerconnection.createDataChannel("chat");
-                datachannel.onopen = function (event) {
-                    console.log("Data channel open and ready to go");
-                    datachannel.send(JSON.stringify({
-                        type: "msg",
-                        username: username.value,
-                        msg: "oh shit wassup from datachannel bromego!"
-                    }));
-                }
-
-                datachannel.onclose = function (event) {
-                    console.log("Data channel closed, goodbye");
-                }
-
-                datachannel.onmessage = handleDataChannelMessage;
+                navigator.mediaDevices.getUserMedia({audio: true, video: true})
+                .then(function(localStream) {
+                    document.getElementById("local_video").srcObject = localStream;
+                    localStream.getTracks().forEach(track => myPeerConnection.addTrack(track, localStream));
+                })
+                .catch(function (event) {
+                    console.log("Error doing media stuff: ", event);
+                });
             }
         };
 

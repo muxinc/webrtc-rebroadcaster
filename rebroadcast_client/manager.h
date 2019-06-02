@@ -12,6 +12,7 @@
 #include <api/peer_connection_interface.h>
 
 #include "websocket_client.h"
+#include "transcoder.h"
 
 class Manager : public webrtc::PeerConnectionObserver,
                 public webrtc::CreateSessionDescriptionObserver,
@@ -20,7 +21,6 @@ class Manager : public webrtc::PeerConnectionObserver,
 public:
     Manager(rtc::scoped_refptr<WebsocketClient> ws);
     virtual ~Manager();
-
 
     void InitializePeerConnectionFactory();
     bool InitializePeerConnection();
@@ -31,12 +31,13 @@ public:
 
     void OnSignalingChange(
         webrtc::PeerConnectionInterface::SignalingState new_state) override;
-    void OnAddTrack(
-        rtc::scoped_refptr<webrtc::RtpReceiverInterface> receiver,
-        const std::vector<rtc::scoped_refptr<webrtc::MediaStreamInterface>>&
-            streams) override;
+
     void OnRemoveTrack(
         rtc::scoped_refptr<webrtc::RtpReceiverInterface> receiver) override;
+
+    void OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> stream) override;
+    void OnRemoveStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> stream) override;
+
     void OnDataChannel(
         rtc::scoped_refptr<webrtc::DataChannelInterface> channel) override;
     void OnRenegotiationNeeded() override;
@@ -72,6 +73,8 @@ private:
     rtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection;
 
     rtc::scoped_refptr<webrtc::DataChannelInterface> chatChannel;
+
+    std::shared_ptr<Transcoder> transcoder;
 };
 
 #endif // MANAGER_H_

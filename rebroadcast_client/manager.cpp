@@ -86,7 +86,26 @@ void Manager::OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState 
     return;
 }
 
-void Manager::OnAddTrack(rtc::scoped_refptr<webrtc::RtpReceiverInterface> receiver, const std::vector<rtc::scoped_refptr<webrtc::MediaStreamInterface>>& streams) {
+void Manager::OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> stream) {
+    std::cout << "OnAddStream" << std::endl;
+
+    bool hasAudio = stream->GetAudioTracks().size() > 0;
+    bool hasVideo = stream->GetVideoTracks().size() > 0;
+    this->transcoder = std::make_shared<Transcoder>(hasVideo, hasAudio);
+
+    if (hasAudio) {
+        stream->GetAudioTracks()[0]->AddSink(this->transcoder.get());
+    }
+
+    if (hasVideo) {
+        stream->GetVideoTracks()[0]->AddOrUpdateSink(this->transcoder.get(), rtc::VideoSinkWants());
+    }
+
+    return;
+}
+
+void Manager::OnRemoveStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> stream) {
+    std::cout << "OnRemoveStream" << std::endl;
     return;
 }
 

@@ -15,6 +15,7 @@
         </div>
         <div>
             <video id="local_video" autoplay muted></video>
+            <video id="remote_video" autoplay muted></video>
         </div>
         <div>
         <label for="message">message
@@ -54,7 +55,7 @@
                     callButton.disabled = true;
 
                     createPeerConnection();
-                    var desc = new RTCSessionDescription(msg.sdp);
+                    var desc = new RTCSessionDescription(msg);
                     peerconnection.setRemoteDescription(desc)
                     .then(function () {
                         return peerconnection.createAnswer();
@@ -63,10 +64,7 @@
                         return peerconnection.setLocalDescription(answer);
                     })
                     .then(function () {
-                        testWS.send(JSON.stringify({
-                            type: "answer",
-                            sdp: peerconnection.localDescription
-                        }));
+                        testWS.send(JSON.stringify(peerconnection.localDescription));
                     })
                     .catch(reportError);
 
@@ -125,7 +123,6 @@
 
         function reportError(event) {
             console.log("Error:", event);
-            alert("Crap check the console");
         }
 
         function handleDataChannelMessage(event) {
@@ -162,16 +159,6 @@
 
             peerconnection.onnegotiationneeded = function (event) {
                 console.log("onnegotiationneeded", event);
-
-                peerconnection.createOffer().then(function(offer) {
-                    return peerconnection.setLocalDescription(offer);
-                })
-                .then(function() {
-                    var sdpMsg = JSON.stringify(peerconnection.localDescription);
-                    console.log("This is what an sdp message looks like: ", sdpMsg);
-                    testWS.send(sdpMsg);
-                })
-                .catch(reportError);
             };
 
             peerconnection.oniceconnectionstatechange = function (event) {
@@ -192,11 +179,26 @@
                 datachannel.onmessage = handleDataChannelMessage;
             };
 
+            peerconnection.ontrack = function (event) {
+                console.log("Hey cool a mediastream: ", event);
+                document.getElementById("remote_video").srcObject = event.streams[0];
+            }
+
             if (isCaller) {
                 navigator.mediaDevices.getUserMedia({audio: true, video: true})
                 .then(function(localStream) {
                     document.getElementById("local_video").srcObject = localStream;
-                    localStream.getTracks().forEach(track => myPeerConnection.addTrack(track, localStream));
+                    localStream.getTracks().forEach(track => peerconnection.addTrack(track, localStream));
+                    
+                    peerconnection.createOffer().then(function(offer) {
+                        return peerconnection.setLocalDescription(offer);
+                    })
+                    .then(function() {
+                        var sdpMsg = JSON.stringify(peerconnection.localDescription);
+                        console.log("This is what an sdp message looks like: ", sdpMsg);
+                        testWS.send(sdpMsg);
+                    })
+                    .catch(reportError);
                 })
                 .catch(function (event) {
                     console.log("Error doing media stuff: ", event);

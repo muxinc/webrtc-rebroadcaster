@@ -53,13 +53,13 @@ void Transcoder::OnFrame(const webrtc::VideoFrame &frame) {
 
     if (!this->hadFirstFrame) {
         std::cerr << "Hey cool a frame" << std::endl;
+        this->hadFirstFrame = true;
 
         // Ensure FFmpeg has been setup
         this->width = frame.width();
         this->height = frame.height();
 
         // Create a video transcode if it doesn't exist
-        this->hadFirstFrame = true;
 
         /* find the encoder */
         std::cerr << "Find encoder" << std::endl;
@@ -101,6 +101,44 @@ void Transcoder::OnFrame(const webrtc::VideoFrame &frame) {
             std::cerr << "Could not open video codec: " << errBuf << std::endl;
             return;
         }
+
+        this->frame = av_frame_alloc();
+        if (!this->frame) {
+            std::cerr << "Failed to allocate frame" << std::endl;
+            return;
+        }
+
+        this->frame->format = AV_PIX_FMT_YUV420P;
+        this->frame->width = frame.width();
+        this->frame->height = frame.height();
+        ret = av_frame_get_buffer(this->frame, 32);
+        if (ret < 0) {
+            std::cerr << "Could not allocate frame data" << std::endl;
+            return;
+        }
+
+        ret = avcodec_parameters_from_context(this->vStream->codecpar, this->vCodecCtx);
+        if (ret < 0) {
+            std::cerr << "COuld not copy the stream params" << std::endl;
+            return;
+        }
+
+
+        if (!(this->outputContext->oformat->flags & AVFMT_NOFILE)) {
+            ret = avio_open(&this->outputContext->pb, "/tmp/webrtc_dump.mp4", AVIO_FLAG_WRITE);
+            if (ret < 0) {
+                std::cerr << "Failed to open avio output" << std::endl;
+                return;
+            }
+        }
+
+        ret = avformat_write_header(this->outputContext, NULL);
+        if (ret < 0) {
+            std::cerr << "Failed to open output" << std::endl;
+            return;
+        }
+
+        this->codecInitialized = true;
     }
 
 

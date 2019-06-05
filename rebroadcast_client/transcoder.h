@@ -41,6 +41,7 @@ private:
     bool hadFirstAudio;
     bool haveVideo;
     bool haveAudio;
+    bool codecInitialized;
 
     int width;
     int height;
@@ -51,6 +52,7 @@ private:
     AVCodec *vCodec;
     AVCodecContext *vCodecCtx;
     AVStream *vStream;
+    AVFrame *frame;
 
     // Audio Stuff
 };

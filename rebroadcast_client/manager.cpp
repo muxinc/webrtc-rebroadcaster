@@ -92,6 +92,7 @@ void Manager::OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> strea
     bool hasAudio = stream->GetAudioTracks().size() > 0;
     bool hasVideo = stream->GetVideoTracks().size() > 0;
     this->transcoder = std::make_shared<Transcoder>(hasVideo, hasAudio);
+    this->transcoder->Start();
 
     if (hasAudio) {
         stream->GetAudioTracks()[0]->AddSink(this->transcoder.get());

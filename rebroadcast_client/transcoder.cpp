@@ -9,7 +9,7 @@
 #include <iostream>
 
 Transcoder::Transcoder(bool video, bool audio) :
-    haveVideo(video), haveAudio(audio) {
+    haveVideo(video), haveAudio(audio), frameNum(0) {
     std::cerr << "Created a transcoder with audio " << audio << " and video " << video << std::endl;
 }
 
@@ -141,16 +141,55 @@ void Transcoder::OnFrame(const webrtc::VideoFrame &frame) {
         this->codecInitialized = true;
     }
 
-
-    // TODO: Support dynamic resolutions
+    if (!this->codecInitialized) {
+        return;
+    }
 
     if (frame.width() != this->width || frame.height() != this->height) {
         std::cerr << "uh-oh, resolution changed" << std::endl;
+        return;
     }
 
-    frame.video_frame_buffer();
+    rtc::scoped_refptr<webrtc::I420BufferInterface> i420Buf = frame.video_frame_buffer()->ToI420();
 
-    // avcodec_send_frame (data is copied)
+    std::cerr << "Encoding frame number: " << this->frameNum << std::endl;
+
+    this->frame->pts = this->frameNum++;
+    this->frame->data[0] = const_cast<uint8_t*>(i420Buf->DataY());
+    this->frame->data[1] = const_cast<uint8_t*>(i420Buf->DataU()); 
+    this->frame->data[2] = const_cast<uint8_t*>(i420Buf->DataV());
+
+    int ret = avcodec_send_frame(this->vCodecCtx, this->frame);
+    if (ret < 0) {
+        std::cerr << "Failed to send frame" << std::endl;
+    }
+
+    std::cerr << "Frame encoded" << std::endl;
+
+    while (1) {
+        AVPacket *pkt = av_packet_alloc();
+        ret = avcodec_receive_packet(this->vCodecCtx, pkt);
+        std::cerr << "Received a packet" << std::endl;
+        if (ret < 0) {
+            if (ret == AVERROR(EAGAIN)) {
+                break;
+            }
+            std::cerr << "ERROR: Failed to call receive packet: " << ret << std::endl;
+            return;
+        }
+
+        std::cerr << "Writing frame" << std::endl;
+        av_write_frame(this->outputContext, pkt);
+        std::cerr << "Frame written" << std::endl;
+    }
+
+    if (this->frameNum > (30 * 60)) {
+        this->codecInitialized = false;
+
+        avcodec_send_frame(this->vCodecCtx, NULL);
+
+        av_write_trailer(this->outputContext);
+    }
 }
 
 //

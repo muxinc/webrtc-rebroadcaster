@@ -43,6 +43,7 @@ private:
     bool haveAudio;
     bool codecInitialized;
 
+    int frameNum;
     int width;
     int height;
 

@@ -9,7 +9,7 @@
 #include <iostream>
 
 Transcoder::Transcoder(bool video, bool audio) :
-    haveVideo(video), haveAudio(audio), frameNum(0) {
+    haveVideo(video), haveAudio(audio), hadFrame(false), frameNum(0), m(), cv() {
     std::cerr << "Created a transcoder with audio " << audio << " and video " << video << std::endl;
 }
 
@@ -21,32 +21,72 @@ Transcoder::~Transcoder() {
 }
 
 bool Transcoder::Start() {
+    std::cerr << "STARTING THE TRANSCODER" << std::endl;
     // TODO: Some thread stuff prolly
 
-    if (avformat_alloc_output_context2(&this->outputContext, NULL, NULL, "/tmp/webrtc_dump.mp4") < 0) {
+    if (avformat_alloc_output_context2(&this->outputContext, NULL, "flv", NULL) < 0) {
         std::cerr << "ERROR: Failed to alloc output context" << std::endl;
         return false;
     };
 
-    if (this->haveVideo) {
-
-
-        // av_opt_set(c->priv_data, "preset", "slow", 0);
-    }
+    this->runThread = std::thread(&Transcoder::run, this);
 
     return true;
+}
+
+void Transcoder::run() noexcept {
+    if (this == NULL) {
+        std::cerr << "wdhut?" << std::endl;
+    }
+    std::unique_lock<std::mutex> lk(this->m);
+    while (1) {
+        std::cerr << "waiting for frame" << std::endl;
+        this->cv.wait(lk, [this]{return this->shouldStop || this->hadFrame;});
+        std::cerr << "got notified" << std::endl;
+
+        while (1) {
+            AVPacket *pkt = av_packet_alloc();
+            int ret = avcodec_receive_packet(this->vCodecCtx, pkt);
+            std::cerr << "Received a packet" << std::endl;
+            if (ret < 0) {
+                if (ret == AVERROR(EAGAIN)) {
+                    std::cerr << "eagain" << std::endl;
+                    break;
+                }
+                std::cerr << "ERROR: Failed to call receive packet: " << ret << std::endl;
+                return;
+            }
+
+            std::cerr << "Unlocking" << std::endl;
+            lk.unlock();
+
+            std::cerr << "Writing frame" << std::endl;
+            av_write_frame(this->outputContext, pkt);
+            std::cerr << "Frame written" << std::endl;
+
+            lk.lock();
+        }
+
+        this->hadFrame = false;
+    }
 }
 
 void Transcoder::Stop() {
     this->shouldStop = true;
 
-    // Condition variable stuff?
+    avcodec_send_frame(this->vCodecCtx, NULL);
+    this->cv.notify_all();
+    this->runThread.join();
+
+    if (this->codecInitialized) {
+        av_write_trailer(this->outputContext);
+    }
 }
 
 //
 // VideoSinkInterface implementation
 //
-void Transcoder::OnFrame(const webrtc::VideoFrame &frame) {
+void Transcoder::OnFrame(const webrtc::VideoFrame &frame) noexcept {
     if (!this->haveVideo) {
         std::cerr << "ERROR: Received unexpected video frame" << std::endl;
     }
@@ -88,7 +128,7 @@ void Transcoder::OnFrame(const webrtc::VideoFrame &frame) {
         this->vCodecCtx->width = frame.width();
         this->vCodecCtx->height = frame.height();
 
-        this->vStream->time_base = (AVRational){ 1, 30 };
+        this->vStream->time_base = (AVRational){ 1, 1000 };
         this->vCodecCtx->time_base = this->vStream->time_base;
         this->vCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P;
 
@@ -125,7 +165,7 @@ void Transcoder::OnFrame(const webrtc::VideoFrame &frame) {
 
 
         if (!(this->outputContext->oformat->flags & AVFMT_NOFILE)) {
-            ret = avio_open(&this->outputContext->pb, "/tmp/webrtc_dump.mp4", AVIO_FLAG_WRITE);
+            ret = avio_open(&this->outputContext->pb, "rtmp://live-staging.mux.com/app/<streamkey>", AVIO_FLAG_WRITE);
             if (ret < 0) {
                 std::cerr << "Failed to open avio output" << std::endl;
                 return;
@@ -139,6 +179,7 @@ void Transcoder::OnFrame(const webrtc::VideoFrame &frame) {
         }
 
         this->codecInitialized = true;
+        this->startTime = frame.render_time_ms();
     }
 
     if (!this->codecInitialized) {
@@ -152,43 +193,34 @@ void Transcoder::OnFrame(const webrtc::VideoFrame &frame) {
 
     rtc::scoped_refptr<webrtc::I420BufferInterface> i420Buf = frame.video_frame_buffer()->ToI420();
 
-    std::cerr << "Encoding frame number: " << this->frameNum << std::endl;
+    std::cerr << "Encoding frame number: " << this->frameNum++ << std::endl;
+    std::cerr << "Current timestamp: " << frame.render_time_ms() << std::endl; 
 
-    this->frame->pts = this->frameNum++;
+    this->frame->pts = frame.render_time_ms() - this->startTime;
     this->frame->data[0] = const_cast<uint8_t*>(i420Buf->DataY());
     this->frame->data[1] = const_cast<uint8_t*>(i420Buf->DataU()); 
     this->frame->data[2] = const_cast<uint8_t*>(i420Buf->DataV());
 
-    int ret = avcodec_send_frame(this->vCodecCtx, this->frame);
-    if (ret < 0) {
-        std::cerr << "Failed to send frame" << std::endl;
+    {
+        std::cerr << "lock guard" << std::endl;
+        std::lock_guard<std::mutex> lk(this->m);
+        this->hadFrame = true;
+
+        int ret = avcodec_send_frame(this->vCodecCtx, this->frame);
+        if (ret < 0) {
+            std::cerr << "Failed to send frame" << std::endl;
+        }
+
+        std::cerr << "notify all" << std::endl;
+        this->cv.notify_all();
+        std::cerr << "notify done" << std::endl;
     }
 
     std::cerr << "Frame encoded" << std::endl;
 
-    while (1) {
-        AVPacket *pkt = av_packet_alloc();
-        ret = avcodec_receive_packet(this->vCodecCtx, pkt);
-        std::cerr << "Received a packet" << std::endl;
-        if (ret < 0) {
-            if (ret == AVERROR(EAGAIN)) {
-                break;
-            }
-            std::cerr << "ERROR: Failed to call receive packet: " << ret << std::endl;
-            return;
-        }
-
-        std::cerr << "Writing frame" << std::endl;
-        av_write_frame(this->outputContext, pkt);
-        std::cerr << "Frame written" << std::endl;
-    }
-
     if (this->frameNum > (30 * 60)) {
+        this->Stop();
         this->codecInitialized = false;
-
-        avcodec_send_frame(this->vCodecCtx, NULL);
-
-        av_write_trailer(this->outputContext);
     }
 }
 

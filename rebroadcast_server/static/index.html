@@ -6,8 +6,9 @@
     <body>
         <h2>Chat test</h2>
         <div>
-            <label for="username">Username
-            <input type="text" id="username"/>
+            <label for="rtmpURI">rtmp url
+                <input type="text" id="rtmpURI" placeholder="rtmp url"/>
+                <input type="password" id="streamKey" placeholder="stream key"/>
             </label>
         </div>
         <div>
@@ -18,58 +19,20 @@
             <video id="remote_video" autoplay muted></video>
         </div>
         <div>
-        <label for="message">message
-            <input type="text" id="message"/>
-            <button id="send_msg">Send</button>
-        </label>
-        </div>
-        <div id="messages">
-        </div>
     </body>
     <script>
         var peerconnection = null;
-        var isCaller = false;
-        var datachannel = null;
-
-        var username = document.getElementById("username");
-        var messageInput = document.getElementById("message");
-        var sendButton = document.getElementById("send_msg");
+        var rtmpUri = document.getElementById("rtmpURI");
+        var streamKey = document.getElementById("streamKey");
         var callButton = document.getElementById("call_start");
-        var messages = document.getElementById("messages");
-        var testWS = new WebSocket("ws://localhost:5000/echo");
+        var protocol = window.location.protocol == "https:" ? "wss://" : "ws://";
+        var testWS = new WebSocket(protocol + window.location.host + "/echo");
 
         testWS.onmessage = function (event) {
             console.log("Hey cool, a message!", event.data);
             var msg = JSON.parse(event.data);
 
             switch (msg.type) {
-                case "msg":
-                    newMsg = document.createElement("div");
-                    newMsg.innerHTML = `<strong>${msg.username}</strong> ${msg.msg}`;
-                    messages.prepend(newMsg);
-
-                    break;
-
-                case "offer":
-                    console.log("answering a call");
-                    callButton.disabled = true;
-
-                    createPeerConnection();
-                    var desc = new RTCSessionDescription(msg);
-                    peerconnection.setRemoteDescription(desc)
-                    .then(function () {
-                        return peerconnection.createAnswer();
-                    })
-                    .then(function (answer) {
-                        return peerconnection.setLocalDescription(answer);
-                    })
-                    .then(function () {
-                        testWS.send(JSON.stringify(peerconnection.localDescription));
-                    })
-                    .catch(reportError);
-
-                    break;
-
                 case "answer":
                     console.log("Received an answer to my call");
 
@@ -97,40 +60,20 @@
             }
         };
 
-        sendButton.onclick = function () {
-            if (username.value == "") {
-                username.focus()
-                return
-            }
-
-            if (datachannel == null) {
-                alert("Can't send a message from a closed channel");
-            } else {
-
-                datachannel.send(JSON.stringify({
-                    "type": "msg",
-                    "username": username.value,
-                    "msg": messageInput.value
-                }));
-            }
-        };
-
         callButton.onclick = function () {
-            callButton.disabled = true;
-            isCaller = true;
-            createPeerConnection();
+            if (rtmpUri.value == "") {
+                rtmpUri.focus();
+            } else if (streamKey.value == "") {
+                streamKey.focus();
+            } else {
+                callButton.disabled = true;
+                createPeerConnection();
+            }
         }
 
         function reportError(event) {
             console.log("Error:", event);
         }
-
-        function handleDataChannelMessage(event) {
-                var msg = JSON.parse(event.data);
-                newMsg = document.createElement("div");
-                newMsg.innerHTML = `<strong>${msg.username}</strong> ${msg.msg}`;
-                messages.prepend(newMsg);
-        };
 
         function createPeerConnection() {
             peerconnection = new RTCPeerConnection({
@@ -173,37 +116,29 @@
                 console.log("onsignalingstatechange", event);
             };
 
-            peerconnection.ondatachannel = function (event) {
-                console.log("Hey cool a data channel: ", event);
-                datachannel = event.channel;
-                datachannel.onmessage = handleDataChannelMessage;
-            };
 
-            peerconnection.ontrack = function (event) {
-                console.log("Hey cool a mediastream: ", event);
-                document.getElementById("remote_video").srcObject = event.streams[0];
-            }
-
-            if (isCaller) {
-                navigator.mediaDevices.getUserMedia({audio: true, video: true})
-                .then(function(localStream) {
-                    document.getElementById("local_video").srcObject = localStream;
-                    localStream.getTracks().forEach(track => peerconnection.addTrack(track, localStream));
-                    
-                    peerconnection.createOffer().then(function(offer) {
-                        return peerconnection.setLocalDescription(offer);
-                    })
-                    .then(function() {
-                        var sdpMsg = JSON.stringify(peerconnection.localDescription);
-                        console.log("This is what an sdp message looks like: ", sdpMsg);
-                        testWS.send(sdpMsg);
-                    })
-                    .catch(reportError);
+            navigator.mediaDevices.getUserMedia({audio: true, video: true})
+            .then(function(localStream) {
+                document.getElementById("local_video").srcObject = localStream;
+                localStream.getTracks().forEach(track => peerconnection.addTrack(track, localStream));
+                
+                peerconnection.createOffer().then(function(offer) {
+                    return peerconnection.setLocalDescription(offer);
                 })
-                .catch(function (event) {
-                    console.log("Error doing media stuff: ", event);
-                });
-            }
+                .then(function() {
+                    var msg = {
+                        "rtmp_uri": rtmpUri.value + "/" + streamKey.value,
+                        "sdp": peerconnection.localDescription.sdp,
+                        "type": peerconnection.localDescription.type
+                    };
+                    var sdpMsg = JSON.stringify(msg);
+                    testWS.send(sdpMsg);
+                })
+                .catch(reportError);
+            })
+            .catch(function (event) {
+                console.log("Error doing media stuff: ", event);
+            });
         };
 
     </script>

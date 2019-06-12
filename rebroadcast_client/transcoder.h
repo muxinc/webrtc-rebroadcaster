@@ -23,7 +23,7 @@ extern "C" {
 class Transcoder : public webrtc::AudioTrackSinkInterface,
                    public rtc::VideoSinkInterface<webrtc::VideoFrame> {
 public:
-    Transcoder(bool video, bool audio);
+    Transcoder(std::string rtmpURL, bool video, bool audio);
     virtual ~Transcoder();
 
     bool Start();
@@ -32,7 +32,7 @@ public:
     //
     // VideoSinkInterface implementation
     //
-    void OnFrame(const webrtc::VideoFrame &frame) noexcept override;
+    void OnFrame(const webrtc::VideoFrame &frame) override;
 
     //
     // AudioTrackSinkInterface
@@ -41,8 +41,10 @@ public:
 
 private:
 
+    std::string rtmpURL;
+
     // Internal send thread
-    void run() noexcept;
+    void run();
 
     bool shouldStop;
     bool hadFirstFrame;

@@ -68,6 +68,7 @@ public:
     void OnWebsocketError() override;
 
 private:
+    std::string rtmpURL;
     rtc::scoped_refptr<WebsocketClient> ws;
     rtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> peer_connection_factory;
     rtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection;

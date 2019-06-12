@@ -91,7 +91,7 @@ void Manager::OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> strea
 
     bool hasAudio = stream->GetAudioTracks().size() > 0;
     bool hasVideo = stream->GetVideoTracks().size() > 0;
-    this->transcoder = std::make_shared<Transcoder>(hasVideo, hasAudio);
+    this->transcoder = std::make_shared<Transcoder>(this->rtmpURL, hasVideo, hasAudio);
     this->transcoder->Start();
 
     if (hasAudio) {
@@ -250,6 +250,13 @@ void Manager::OnMessage(const std::string& message) {
             return;
         }
 
+        if (!rtc::GetStringFromJsonObject(jmessage, "rtmp_uri", &this->rtmpURL)) {
+            std::cerr << "ERROR: Message did not contain an RTMP location" << std::endl;
+            return;
+        } else {
+            std::cerr << "Broadcasting to this RTMP URL: " << this->rtmpURL << std::endl;
+        }
+
          std::unique_ptr<webrtc::SessionDescriptionInterface> offerDescription = webrtc::CreateSessionDescription(webrtc::SdpType::kOffer, sdpString, &error);
          if (!offerDescription) {
              std::cerr << "ERROR: Failed to parse incoming sdp offer: " << error.line << std::endl << error.description << std::endl;
@@ -265,7 +272,6 @@ void Manager::OnMessage(const std::string& message) {
 
          std::cerr << "Remote description set, generating an answer" << std::endl;
          this->peer_connection->CreateAnswer(this, webrtc::PeerConnectionInterface::RTCOfferAnswerOptions());
-
     } else if (msgType.compare("ice-candidate") == 0) {
         std::cerr << "Oh sweet an ice candidate" << std::endl;
 

@@ -49,7 +49,7 @@ int main(int argc, char** argv)
     std::thread pcThread(&Manager::InitializePeerConnectionFactory, manager);
 
     ws->RegisterObserver(manager);
-    ws->Connect("localhost", "5000", "/echo");
+    ws->Connect("localhost", "5005", "/echo");
 
     std::cerr << "Done, returning" << std::endl;
     pcThread.join();

@@ -41,6 +41,12 @@ RUN apt-get update && apt-get install -y software-properties-common wget
 RUN add-apt-repository ppa:jonathonf/ffmpeg-4 && apt-get update && apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavutil-dev
 
 #
+# Install deps
+#
+RUN apt-get update && apt-get install -y cmake g++ python-dev autotools-dev libicu-dev libbz2-dev libssl-dev
+
+
+#
 # Install Boost
 #
 
@@ -53,13 +59,27 @@ RUN cd /opt && \
     rm boost_1_70_0.tar.gz && \
     cd boost_1_70_0 && \
     ./bootstrap.sh && \
-    ./b2 install; \
+    ./b2 -j 4; \
+    ./b2 install && \
     cd /opt && \
     rm -rf /opt/boost_1_70_0
 
 #
 # Build rebroadcast client
 #
+
+RUN cd /opt && git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+RUN echo "export PATH=$PATH:/opt/depot_tools" >> ~/.bashrc
+ENV PATH="/opt/depot_tools:${PATH}"
+
+RUN mkdir /opt/webrtc-checkout && \
+    cd /opt/webrtc-checkout && \
+    fetch --nohooks webrtc && \
+    cd /opt/webrtc-checkout/src && \
+    git checkout branch-heads/m75 && \
+    gclient sync
+
+RUN apt-get update && apt-get install -y libx11-dev
 
 ADD rebroadcast_client/ /opt/rebroadcast_client
 WORKDIR /opt/rebroadcast_client

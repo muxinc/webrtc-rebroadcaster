@@ -20,10 +20,10 @@ find_library( AVCODEC_LIBRARY avcodec )
 
 add_executable(main manager.cpp websocket_client.cpp transcoder.cpp main.cpp json.cc )
 target_include_directories( main PRIVATE
-	"/home/nick/public_src/webrtc-checkout/src"
-	"/home/nick/public_src/webrtc-checkout/src/third_party/jsoncpp/source/include"
-	"/home/nick/public_src/webrtc-checkout/src/third_party/abseil-cpp"
-	"/home/nick/public_src/webrtc-checkout/src/third_party/libyuv/include"
+	"/opt/webrtc-checkout/src"
+	"/opt/webrtc-checkout/src/third_party/jsoncpp/source/include"
+	"/opt/webrtc-checkout/src/third_party/abseil-cpp"
+	"/opt/webrtc-checkout/src/third_party/libyuv/include"
 	${AVCODEC_INCLUDE_DIR} )
 target_link_libraries(
 	main

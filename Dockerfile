@@ -19,22 +19,24 @@ RUN mkdir /opt/webrtc-checkout && \
     cd /opt/webrtc-checkout && \
     fetch --nohooks webrtc && \
     cd /opt/webrtc-checkout/src && \
-    git checkout master && \
-    cd /opt/webrtc-checkout && \
+    git checkout branch-heads/m75 && \
     gclient sync
 
 WORKDIR /opt/webrtc-checkout/src/
 RUN cat ./build/install-build-deps.sh
-RUN cd /opt/webrtc-checkout/src && DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true ./build/install-build-deps.sh --no-prompt
+RUN cd /opt/webrtc-checkout/src && \
+    DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true ./build/install-build-deps.sh --no-prompt
 
-RUN gn gen out/Debug66 --args="rtc_include_tests=false rtc_use_h264=true use_rtti=true is_component_build=false rtc_include_internal_audio_device=false enable_iterator_debugging=false target_os=\"linux\" target_cpu=\"x64\" is_debug=true use_custom_libcxx=false use_custom_libcxx_for_host=false"
-RUN ninja -C out/Debug66
+RUN gn gen out/Release72 --args="rtc_include_tests=false rtc_use_h264=false use_rtti=true is_component_build=false enable_iterator_debugging=false target_os=\"linux\" target_cpu=\"x64\" is_debug=false use_custom_libcxx=false use_custom_libcxx_for_host=false"
+RUN ninja -C out/Release72
 
-RUN cd /opt/webrtc-checkout/src/out/Debug66/obj/third_party/jsoncpp/jsoncpp && ar rcs ../../libjsoncpp.a json_reader.o json_writer.o json_value.o
-
+RUN cd /opt/webrtc-checkout/src/out/Release72/obj/third_party/jsoncpp/jsoncpp && ar rcs ../../libjsoncpp.a json_reader.o json_writer.o json_value.o
 
 RUN apt-get update && apt-get install -y software-properties-common wget
 RUN add-apt-repository ppa:jonathonf/ffmpeg-4 && apt-get update && apt-get install -y ffmpeg libavcodec-dev libavformat-dev libavutil-dev
+
+RUN mkdir /opt/boost
+WORKDIR /opt/boost
 
 RUN cd /opt && \
     wget "https://dl.bintray.com/boostorg/release/1.70.0/source/boost_1_70_0.tar.gz" && \
@@ -61,3 +63,4 @@ RUN apt-get update && apt-get install -y alsa-utils pulseaudio && \
 ADD entrypoint.sh /opt/entrypoint.sh
 
 ENTRYPOINT ["/bin/bash", "/opt/entrypoint.sh"]
+
